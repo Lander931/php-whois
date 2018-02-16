@@ -23,3 +23,16 @@ if ($domain->isAvailable()) {
 }
 
 ```
+
+## Proxy
+
+```php
+$sld = 'reg.ru';
+
+$domain = new Phois\Whois\Whois($sld, [
+    'host' => '127.0.0.1',
+    'port' => '30000',
+    'user' => 'user',
+    'pass' => 'secret'
+]);
+```
