@@ -2,6 +2,11 @@
 
 namespace Phois\Whois;
 
+use Clue\React\Socks\Client;
+use React\EventLoop\Factory;
+use React\Socket\ConnectionInterface;
+use React\Socket\Connector;
+
 class Whois
 {
     private $domain;
@@ -12,12 +17,23 @@ class Whois
 
     private $servers;
 
+    private $proxy;
     /**
      * @param string $domain full domain name (without trailing dot)
+     * @param array $proxy
+     * @throws \Exception
      */
-    public function __construct($domain)
+    public function __construct($domain, $proxy = [])
     {
         $this->domain = $domain;
+
+        if (count($proxy) > 0) {
+            if (isset($proxy['host']) && isset($proxy['port'])) {
+                $this->proxy = $proxy;
+            } else {
+                throw new \Exception('need host and port');
+            }
+        }
         // check $domain syntax and split full domain name on subdomain and TLDs
         if (
             preg_match('/^([\p{L}\d\-]+)\.((?:[\p{L}\-]+\.?)+)$/ui', $this->domain, $matches)
@@ -51,6 +67,10 @@ class Whois
                     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
                     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
                     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+                    if ($this->proxy) {
+                        curl_setopt($ch, CURLOPT_PROXY, $this->proxy['host'] . ':' . $this->proxy['port']);
+                        curl_setopt($ch, CURLOPT_PROXYUSERPWD, $this->proxy['user'] . ':' . $this->proxy['pass']);
+                    }
 
                     $data = curl_exec($ch);
 
@@ -62,32 +82,18 @@ class Whois
                     curl_close($ch);
 
                 } else {
+                    if ($this->proxy) {
+                        $string = $this->throughProxy($whois_server);
+                        $string = self::normalizeInfo($string);
 
-                    // Getting whois information
-                    $fp = fsockopen($whois_server, 43);
-                    if (!$fp) {
-                        return "Connection error!";
-                    }
-
-                    $dom = $this->subDomain . '.' . $this->TLDs;
-                    fputs($fp, "$dom\r\n");
-
-                    // Getting string
-                    $string = '';
-
-                    // Checking whois server for .com and .net
-                    if ($this->TLDs == 'com' || $this->TLDs == 'net') {
-                        while (!feof($fp)) {
-                            $line = trim(fgets($fp, 128));
-
-                            $string .= $line;
-
-                            $lineArr = explode (":", $line);
-
-                            if (strtolower($lineArr[0]) == 'whois server') {
-                                $whois_server = trim($lineArr[1]);
+                        if ($this->TLDs == 'com' || $this->TLDs == 'net') {
+                            foreach (explode("\n", $string) as $line) {
+                                $lineArr = explode(':', $line);
+                                if (strtolower($lineArr[0]) == 'whois server') $whois_server = trim($lineArr[1]);
                             }
+                            $string = $this->throughProxy($whois_server);
                         }
+                    } else {
                         // Getting whois information
                         $fp = fsockopen($whois_server, 43);
                         if (!$fp) {
@@ -100,17 +106,43 @@ class Whois
                         // Getting string
                         $string = '';
 
-                        while (!feof($fp)) {
-                            $string .= fgets($fp, 128);
-                        }
+                        // Checking whois server for .com and .net
+                        if ($this->TLDs == 'com' || $this->TLDs == 'net') {
+                            while (!feof($fp)) {
+                                $line = trim(fgets($fp, 128));
 
-                        // Checking for other tld's
-                    } else {
-                        while (!feof($fp)) {
-                            $string .= fgets($fp, 128);
+                                $string .= $line;
+
+                                $lineArr = explode (":", $line);
+
+                                if (strtolower($lineArr[0]) == 'whois server') {
+                                    $whois_server = trim($lineArr[1]);
+                                }
+                            }
+                            // Getting whois information
+                            $fp = fsockopen($whois_server, 43);
+                            if (!$fp) {
+                                return "Connection error!";
+                            }
+
+                            $dom = $this->subDomain . '.' . $this->TLDs;
+                            fputs($fp, "$dom\r\n");
+
+                            // Getting string
+                            $string = '';
+
+                            while (!feof($fp)) {
+                                $string .= fgets($fp, 128);
+                            }
+
+                            // Checking for other tld's
+                        } else {
+                            while (!feof($fp)) {
+                                $string .= fgets($fp, 128);
+                            }
                         }
+                        fclose($fp);
                     }
-                    fclose($fp);
                 }
 
                 $string_encoding = mb_detect_encoding($string, "UTF-8, ISO-8859-1, ISO-8859-15", true);
@@ -123,6 +155,35 @@ class Whois
         } else {
             return "Domain name isn't valid!";
         }
+    }
+
+    /**
+     * @param $string
+     * @return string
+     */
+    private static function normalizeInfo($string)
+    {
+        $new_string = '';
+        foreach (explode("\n", $string) as $line) $new_string .= trim($line) . "\n";
+        return $new_string;
+    }
+
+    /**
+     * @param string $whois_server
+     * @return string
+     */
+    private function throughProxy($whois_server)
+    {
+        $string = '';
+        $loop = Factory::create();
+        $client = new Client((isset($this->proxy['user']) && isset($this->proxy['pass']) ? $this->proxy['user'] . ":" . $this->proxy['pass'] . '@' : '' ) . $this->proxy['host'] . ':' . $this->proxy['port'], new Connector($loop));
+        $client->connect('tcp://' . $whois_server . ':43')->then(function (ConnectionInterface $stream) use (&$string) {
+            $stream->write($this->subDomain . '.' . $this->TLDs . "\r\n\r\n");
+            $stream->on('data', function ($data) use (&$string) { $string = $data; });
+        });
+        $loop->run();
+
+        return self::normalizeInfo($string);
     }
 
     public function htmlInfo()

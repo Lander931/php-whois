@@ -14,7 +14,8 @@
     ],
     "require": {
         "php": ">=5.3.2",
-        "ext-curl": "*"
+        "ext-curl": "*",
+        "clue/socks-react": "^0.8.7"
     },
     "autoload": {
         "psr-0": { "Phois\\Whois": "src" }
