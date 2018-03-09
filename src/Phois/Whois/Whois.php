@@ -179,7 +179,7 @@ class Whois
         $client = new Client((isset($this->proxy['user']) && isset($this->proxy['pass']) ? $this->proxy['user'] . ":" . $this->proxy['pass'] . '@' : '' ) . $this->proxy['host'] . ':' . $this->proxy['port'], new Connector($loop));
         $client->connect('tcp://' . $whois_server . ':43')->then(function (ConnectionInterface $stream) use (&$string) {
             $stream->write($this->subDomain . '.' . $this->TLDs . "\r\n\r\n");
-            $stream->on('data', function ($data) use (&$string) { $string = $data; });
+            $stream->on('data', function ($data) use (&$string) { $string .= $data; });
         });
         $loop->run();
 
