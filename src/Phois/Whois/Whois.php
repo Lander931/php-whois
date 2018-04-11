@@ -89,7 +89,7 @@ class Whois
                         if ($this->TLDs == 'com' || $this->TLDs == 'net') {
                             foreach (explode("\n", $string) as $line) {
                                 $lineArr = explode(':', $line);
-                                if (strtolower($lineArr[0]) == 'whois server') $whois_server = trim($lineArr[1]);
+                                if (strpos(strtolower($lineArr[0]), 'whois server') !== false) $whois_server = trim($lineArr[1]);
                             }
                             $string = $this->throughProxy($whois_server);
                         }
@@ -115,7 +115,7 @@ class Whois
 
                                 $lineArr = explode (":", $line);
 
-                                if (strtolower($lineArr[0]) == 'whois server') {
+                                if (strpos(strtolower($lineArr[0]), 'whois server') !== false) {
                                     $whois_server = trim($lineArr[1]);
                                 }
                             }
