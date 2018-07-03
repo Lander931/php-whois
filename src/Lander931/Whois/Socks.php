@@ -281,11 +281,13 @@ class Socks
         if ($len != 0) {
             $dump .= fread($this->socket, $len);
         } else {
+            $s = microtime(true);
             while (is_resource($this->socket) && !feof($this->socket)) {
-                if (is_resource($this->socket)){
+                if ((microtime(true) - $s) < $this->stream_timeout){
                     $dump .= fread($this->socket, 1024);
+                } else {
+                    break;
                 }
-                break;
             }
         }
         return $dump;
