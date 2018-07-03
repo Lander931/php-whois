@@ -2,7 +2,7 @@
     "name": "lander931/whois",
     "description": "Whois client.",
     "keywords": ["whois"],
-    "version": "1.0.1",
+    "version": "1.1.0",
     "license": "MIT",
     "authors": [
         {
@@ -15,6 +15,6 @@
         "ext-curl": "*"
     },
     "autoload": {
-        "psr-0": { "Phois\\Whois": "src" }
+        "psr-0": { "Lander931\\Whois": "src" }
     }
 }

@@ -1,6 +1,6 @@
 <?php
 
-namespace Phois\Whois;
+namespace Lander931\Whois;
 
 use Clue\React\Socks\Client;
 use React\EventLoop\Factory;

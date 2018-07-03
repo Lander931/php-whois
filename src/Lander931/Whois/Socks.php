@@ -1,6 +1,6 @@
 <?php
 
-namespace Phois\Whois;
+namespace Lander931\Whois;
 
 
 class Socks
