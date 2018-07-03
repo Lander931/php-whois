@@ -176,6 +176,7 @@ class Whois
     {
         $new_string = '';
         foreach (explode("\n", $string) as $line) $new_string .= trim($line) . "\n";
+        $new_string = substr($new_string,0,-1);
         return $new_string;
     }
 
