@@ -2,10 +2,6 @@
 
 namespace Lander931\Whois;
 
-use Clue\React\Socks\Client;
-use React\EventLoop\Factory;
-use React\Socket\ConnectionInterface;
-use React\Socket\Connector;
 
 class Whois
 {
@@ -55,7 +51,11 @@ class Whois
         $this->servers = json_decode(file_get_contents( __DIR__.'/whois.servers.json' ), true);
     }
 
-    public function info()
+    /**
+     * @param bool $get_best_answer
+     * @return string
+     */
+    public function info($get_best_answer = false)
     {
         if ($this->isValid()) {
             $whois_server = $this->servers[$this->TLDs][0];
@@ -92,15 +92,20 @@ class Whois
                 } else {
                     if ($this->proxy) {
                         $string = $this->throughProxy($whois_server);
-                        $string = self::normalizeInfo($string);
 
                         if ($this->TLDs == 'com' || $this->TLDs == 'net') {
                             foreach (explode("\n", $string) as $line) {
                                 $lineArr = explode(':', $line);
                                 if (strpos(strtolower($lineArr[0]), 'whois server') !== false) $whois_server = trim($lineArr[1]);
                             }
-                            $string = $this->throughProxy($whois_server);
+                            $string_n = $this->throughProxy($whois_server);
+                            if ($get_best_answer){
+                                if (!empty($string_n)) $string = $string_n;
+                            } else {
+                                $string = $string_n;
+                            }
                         }
+                        $string = self::normalizeInfo($string);
                     } else {
                         // Getting whois information
                         $fp = fsockopen($whois_server, 43, $errno, $errstr, $this->connection_timeout);
@@ -191,7 +196,7 @@ class Whois
         $socks->send($this->subDomain . '.' . $this->TLDs . "\r\n\r\n");
         $response = $socks->read();
         $socks->close();
-        return self::normalizeInfo($response);
+        return $response;
     }
 
     public function htmlInfo()
