@@ -1,6 +1,6 @@
 <?php
 
-require_once '../vendor/autoload.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 
 $sld = 'reg.ru';
 
@@ -9,14 +9,8 @@ $domain = new Phois\Whois\Whois($sld, [
     'port' => '30000',
     'user' => 'user',
     'pass' => 'secret'
-]);
+], 60, 60);
 
 $whois_answer = $domain->info();
 
 echo $whois_answer;
-
-if ($domain->isAvailable()) {
-    echo "Domain is available\n";
-} else {
-    echo "Domain is registered\n";
-}

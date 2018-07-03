@@ -18,14 +18,22 @@ class Whois
     private $servers;
 
     private $proxy;
+
+    private $connection_timeout;
+
+    private $stream_timeout;
     /**
      * @param string $domain full domain name (without trailing dot)
      * @param array $proxy
+     * @param integer $connection_timeout
+     * @param float $stream_timeout
      * @throws \Exception
      */
-    public function __construct($domain, $proxy = [])
+    public function __construct($domain, $proxy = [], $connection_timeout = 60, $stream_timeout = 60)
     {
         $this->domain = $domain;
+        $this->connection_timeout = $connection_timeout;
+        $this->stream_timeout = $stream_timeout;
 
         if (count($proxy) > 0) {
             if (isset($proxy['host']) && isset($proxy['port'])) {
@@ -63,7 +71,7 @@ class Whois
                     $url = $whois_server . $this->subDomain . '.' . $this->TLDs;
                     curl_setopt($ch, CURLOPT_URL, $url);
                     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 0);
-                    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, $this->connection_timeout);
                     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
                     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
                     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
@@ -95,10 +103,12 @@ class Whois
                         }
                     } else {
                         // Getting whois information
-                        $fp = fsockopen($whois_server, 43);
+                        $fp = fsockopen($whois_server, 43, $errno, $errstr, $this->connection_timeout);
                         if (!$fp) {
                             return "Connection error!";
                         }
+
+                        stream_set_timeout($fp, 0, $this->stream_timeout * 1000000);
 
                         $dom = $this->subDomain . '.' . $this->TLDs;
                         fputs($fp, "$dom\r\n");
@@ -120,10 +130,11 @@ class Whois
                                 }
                             }
                             // Getting whois information
-                            $fp = fsockopen($whois_server, 43);
+                            $fp = fsockopen($whois_server, 43, $errno, $errstr, $this->connection_timeout);
                             if (!$fp) {
                                 return "Connection error!";
                             }
+                            stream_set_timeout($fp, 0, $this->stream_timeout * 1000000);
 
                             $dom = $this->subDomain . '.' . $this->TLDs;
                             fputs($fp, "$dom\r\n");
@@ -174,16 +185,12 @@ class Whois
      */
     private function throughProxy($whois_server)
     {
-        $string = '';
-        $loop = Factory::create();
-        $client = new Client((isset($this->proxy['user']) && isset($this->proxy['pass']) ? $this->proxy['user'] . ":" . $this->proxy['pass'] . '@' : '' ) . $this->proxy['host'] . ':' . $this->proxy['port'], new Connector($loop));
-        $client->connect('tcp://' . $whois_server . ':43')->then(function (ConnectionInterface $stream) use (&$string) {
-            $stream->write($this->subDomain . '.' . $this->TLDs . "\r\n\r\n");
-            $stream->on('data', function ($data) use (&$string) { $string .= $data; });
-        });
-        $loop->run();
-
-        return self::normalizeInfo($string);
+        $socks = new Socks('socks5', $this->proxy['host'], $this->proxy['port'], $this->proxy['user'], $this->proxy['pass'], $this->connection_timeout, $this->stream_timeout);
+        $socks->connect($whois_server, 43);
+        $socks->send($this->subDomain . '.' . $this->TLDs . "\r\n\r\n");
+        $response = $socks->read();
+        $socks->close();
+        return self::normalizeInfo($response);
     }
 
     public function htmlInfo()
