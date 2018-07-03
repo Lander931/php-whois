@@ -10,7 +10,7 @@ PHP class to retrieve WHOIS information.
 
 $sld = 'reg.ru';
 
-$domain = new Phois\Whois\Whois($sld);
+$domain = new \Lander931\Whois\Whois($sld);
 
 $whois_answer = $domain->info();
 
@@ -29,7 +29,7 @@ if ($domain->isAvailable()) {
 ```php
 $sld = 'reg.ru';
 
-$domain = new Phois\Whois\Whois($sld, [
+$domain = new \Lander931\Whois\Whois($sld, [
     'host' => '127.0.0.1',
     'port' => '30000',
     'user' => 'user',
